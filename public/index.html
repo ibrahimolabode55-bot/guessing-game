@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guessing Game</title>
+</head>
+<body>
+  <h1>Guessing Game</h1>
+
+  <p id="status">Connecting to the game server...</p>
+
+  <h2>Create a Game Room</h2>
+
+  <label for="playerName">Your name:</label>
+  <input
+    type="text"
+    id="playerName"
+    placeholder="Enter your name"
+    maxlength="20"
+  />
+
+  <button id="createRoomBtn" disabled>Create Room</button>
+
+  <p id="roomResult"></p>
+  <p id="roomStatus"></p>
+  
+  <h2>Join a Game Room</h2>
+
+  <label for="joinPlayerName">Your name:</label>
+  <input
+    type="text"
+    id="joinPlayerName"
+    placeholder="Enter your name"
+    maxlength="20"
+  />
+
+  <br><br>
+
+  <label for="roomIdInput">Room ID:</label>
+  <input
+    type="text"
+    id="roomIdInput"
+    placeholder="Enter room ID"
+    maxlength="6"
+  />
+
+  <button id="joinRoomBtn">Join Room</button>
+
+  <p id="joinResult"></p>
+
+  
+  <h2>Game Master's Question</h2>
+
+  <label for="questionInput">Enter your question:</label>
+  <br>
+  <textarea
+    id="questionInput"
+    placeholder="Type the question players must answer"
+    rows="3"
+  ></textarea>
+
+  <br><br>
+
+  <label for="answerInput">Correct answer:</label>
+  <br>
+  <input
+    type="password"
+    id="answerInput"
+    placeholder="Enter the correct answer"
+    maxlength="100"
+  />
+
+  <br><br>
+
+  <button id="saveQuestionBtn">Save Question</button>
+
+  <p id="questionResult"></p>
+
+  <button id="startGameBtn">Start Game</button>
+
+  <p id="gameStatus"></p>
+  <p id="gameQuestion"></p>
+  <p id="scoresDisplay">Score will appear here.</p>
+
+  <div id="guessArea">
+    <h3>Make Your Guess</h3>
+    <input type="text" id="guessInput" placeholder="Type Your answer"/>
+    <button id="guessBtn">Submit Guess</button>
+    <p id="guessStatus"></p>
+    <p id="attemptsStatus"></p>
+  </div>
+
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    const status = document.getElementById("status");
+    const playerName = document.getElementById("playerName");
+    const createRoomBtn = document.getElementById("createRoomBtn");
+    const roomResult = document.getElementById("roomResult");
+    const roomStatus = document.getElementById("roomStatus");
+
+    const joinPlayerName = document.getElementById("joinPlayerName");
+    const roomIdInput = document.getElementById("roomIdInput");
+    const joinRoomBtn = document.getElementById("joinRoomBtn");
+    const joinResult = document.getElementById("joinResult");
+
+    const questionInput = document.getElementById("questionInput");
+    const answerInput = document.getElementById("answerInput");
+    const saveQuestionBtn = document.getElementById("saveQuestionBtn");
+    const questionResult = document.getElementById("questionResult");
+
+    const startGameBtn = document.getElementById("startGameBtn");
+    const gameStatus = document.getElementById("gameStatus");
+    const gameQuestion = document.getElementById("gameQuestion");
+
+    const guessInput = document.getElementById("guessInput");
+    const guessBtn = document.getElementById("guessBtn");
+    const guessStatus = document.getElementById("guessStatus");
+    const attemptsStatus = document.getElementById("attemptsStatus");
+
+    socket.on("connect", () => {
+      status.textContent = "Connected to the game server!";
+      createRoomBtn.disabled = false;
+    });
+
+    socket.on("connect_error", () => {
+      status.textContent = "Could not connect to the game server.";
+      createRoomBtn.disabled = true;
+    });
+
+    createRoomBtn.addEventListener("click", () => {
+      const name = playerName.value.trim();
+
+      if (!name) {
+        roomResult.textContent = "Please enter your name first.";
+        return;
+      }
+
+      roomResult.textContent = "Creating your room...";
+      roomStatus.textContent = "";
+
+      socket.emit("create-room", name);
+    });
+ 
+    joinRoomBtn.addEventListener("click", () => {
+      const name = joinPlayerName.value.trim();
+      const roomId = roomIdInput.value.trim().toUpperCase();
+
+      if (!name || !roomId) {
+        joinResult.textContent = "Enter your name and the Room ID.";
+        return;
+      }
+
+      joinResult.textContent = "Trying to join the room...";
+
+      socket.emit("join-room", {
+        playerName: name,
+        roomId: roomId
+      });
+    });
+  
+    saveQuestionBtn.addEventListener("click", () => {
+      const question = questionInput.value.trim();
+      const answer = answerInput.value.trim();
+
+      if (!question || !answer) {
+        questionResult.textContent =
+          "Please enter both a question and an answer.";
+        return;
+      }
+
+      socket.emit("save-question", {
+        question: question,
+        answer: answer
+      });
+
+      questionResult.textContent = "Saving question...";
+    });
+
+    startGameBtn.addEventListener("click", () => {
+        socket.emit("start-game");
+        gameStatus.textContent = "Requesting to start the game...";
+    });
+
+    socket.on("room-created", (room) => {
+      roomResult.textContent = "Your Room ID is: " + room.roomId;
+      roomStatus.textContent =
+        "You are the game master. Players connected: " +
+        room.players.length;
+    });
+
+    socket.on("room-error", (message) => {
+      roomResult.textContent = message;
+    });
+
+    socket.on("room-joined", (room) => {
+      joinResult.textContent =
+        "You joined room " + room.roomId +
+        ". Players connected: " + room.players.length;
+    });
+
+    socket.on("join-error", (message) => {
+      joinResult.textContent = message;
+    });
+
+    socket.on("question-saved", (message) => {
+      questionResult.textContent = message;
+    });
+
+    socket.on("question-error", (message) => {
+      questionResult.textContent = message;
+    });
+
+    socket.on("game-error", (message) => {
+        gameStatus.textContent = message;
+    });
+
+    socket.on("game-started", (game) => {
+        gameStatus.textContent = "The game has started!";
+        guessBtn.disabled = false;
+        guessInput.disabled = false;
+        guessInput.value = "";
+        gameQuestion.textContent = "Question: " + game.question;
+
+        const scores = game.players.map((player) => player.name + ": " + player.score + " point").join(" | ");
+
+        scoresDisplay.textContent = "scores: " + scores;
+    });
+
+    
+    socket.on("guess-result", (data) => {
+      guessStatus.textContent = data.message;
+
+      if (data.attemptsLeft !== undefined) {
+        attemptsStatus.textContent =
+          "Attempts remaining: " + data.attemptsLeft;
+      }
+    });
+
+    socket.on("round-ended", (data) => {
+      gameStatus.textContent =
+        "Round over! " + data.winnerName + " won!";
+
+      gameQuestion.textContent =
+        "The answer was: " + data.answer;
+
+      attemptsStatus.textContent = "Round finished.";
+
+      guessBtn.disabled = true;
+      guessInput.disabled = true;
+
+      const scores = data.players
+        .map((player) => player.name + ": " + player.score + " points")
+        .join(" | ");
+
+      guessStatus.textContent = "Scores: " + scores;
+    });
+    
+  socket.on("time-up", (data) => {
+    gameStatus.textContent = "Time is up! Nobody won this round.";
+
+    gameQuestion.textContent =
+      "The answer was: " + data.answer;
+
+    attemptsStatus.textContent = "Time expired. No more guesses.";
+
+    guessStatus.textContent = "No points awarded this round.";
+
+    guessBtn.disabled = true;
+    guessInput.disabled = true;
+
+    const scores = data.players
+      .map((player) => player.name + ": " + player.score + " points")
+      .join(" | ");
+
+    guessStatus.textContent += " Scores: " + scores;
+  });
+
+
+    socket.on("you-won", (message) => {
+      gameStatus.textContent = message;
+    });
+
+
+    guessBtn.addEventListener("click", () => {
+        const guess = guessInput.value.trim();
+
+        if (guess === "") {
+            guessStatus.textContent = "Please enter your guess.";
+            return;
+        }
+
+        socket.emit("submit-guess", {
+            guess: guess
+        });
+    });+
+
+    socket.on("player-list-updated", (data) => {
+      roomStatus.textContent =
+      "Players connected: " + data.players.length;
+    });
+  
+  </script>
+</body>
+</html>
