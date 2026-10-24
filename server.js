@@ -334,7 +334,7 @@ io.on("connection", (socket) => {
 
 });
 
-const PORT = Process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
   console.log(`Guessing Game is running on port ${PORT}`);
